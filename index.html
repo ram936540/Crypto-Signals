@@ -16,25 +16,28 @@
 <body class="bg-zinc-950 text-white">
   <div class="max-w-7xl mx-auto p-6">
     <h1 class="text-4xl font-bold text-center mb-2">🚀 Live Crypto Signals</h1>
-    <p class="text-center text-zinc-400 mb-8">Real Technical Analysis • RSI + EMA + MACD</p>
+    <p class="text-center text-zinc-400 mb-8">Real Technical Analysis + Portfolio Tracker</p>
 
     <div class="flex gap-4 mb-8">
       <button onclick="loadTop100()" class="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-2xl flex items-center gap-2">
-        <i class="fas fa-sync"></i> Refresh Top 100
+        <i class="fas fa-sync"></i> Refresh Signals
       </button>
-      <button onclick="showAddModal()" class="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-2xl flex items-center gap-2">
-        <i class="fas fa-plus"></i> Add Favorite Coin
+      <button onclick="showPortfolioModal()" class="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-2xl flex items-center gap-2">
+        <i class="fas fa-briefcase"></i> Portfolio
       </button>
     </div>
 
-    <h2 class="text-2xl font-bold mb-4">📊 Top 100 Coins</h2>
+    <!-- Signals Section -->
+    <h2 class="text-2xl font-bold mb-4">📊 Top 100 Coins Signals</h2>
     <div class="overflow-x-auto mb-12">
       <table class="w-full" id="topTable"><tbody></tbody></table>
     </div>
 
-    <h2 class="text-2xl font-bold mb-4">⭐ My Favorite Coins</h2>
+    <!-- Portfolio Section -->
+    <h2 class="text-2xl font-bold mb-4">💼 My Portfolio</h2>
+    <div id="portfolioSummary" class="bg-zinc-900 p-5 rounded-3xl mb-6 text-lg"></div>
     <div class="overflow-x-auto">
-      <table class="w-full" id="myTable"><tbody></tbody></table>
+      <table class="w-full" id="portfolioTable"><tbody></tbody></table>
     </div>
   </div>
 
@@ -43,29 +46,30 @@
     <div class="bg-zinc-900 rounded-3xl max-w-2xl w-full max-h-[95vh] overflow-auto">
       <div class="p-6 border-b border-zinc-700 flex justify-between sticky top-0 bg-zinc-900">
         <div id="modalCoinName" class="text-2xl font-bold"></div>
-        <button onclick="closeModal()" class="text-4xl">×</button>
+        <button onclick="closeModal()" class="text-4xl font-bold hover:text-red-400">×</button>
       </div>
       <div id="modalContent" class="p-6"></div>
     </div>
   </div>
 
-  <!-- Add Modal -->
-  <div id="addModal" class="hidden fixed inset-0 bg-black/90 flex items-center justify-center z-50">
-    <div class="bg-zinc-900 p-8 rounded-3xl w-full max-w-md">
-      <h3 class="text-2xl mb-6">Add Favorite Coin</h3>
-      <input id="coinInput" placeholder="bitcoin, solana, ethereum..." class="w-full bg-zinc-800 px-5 py-4 rounded-2xl mb-6">
+  <!-- Portfolio Add Modal -->
+  <div id="portfolioModal" class="hidden fixed inset-0 bg-black/90 flex items-center justify-center z-50">
+    <div class="bg-zinc-900 p-8 rounded-3xl w-full max-w-lg">
+      <h3 class="text-2xl mb-6">Add to Portfolio</h3>
+      <input id="portCoinInput" placeholder="bitcoin, solana..." class="w-full bg-zinc-800 px-5 py-4 rounded-2xl mb-4">
+      <input id="portQuantity" type="number" placeholder="Quantity (e.g. 2.5)" class="w-full bg-zinc-800 px-5 py-4 rounded-2xl mb-6">
       <div class="flex gap-3">
-        <button onclick="hideAddModal()" class="flex-1 py-4 rounded-2xl border border-zinc-700">Cancel</button>
-        <button onclick="searchAndAddCoin()" class="flex-1 bg-blue-600 py-4 rounded-2xl">Add</button>
+        <button onclick="hidePortfolioModal()" class="flex-1 py-4 rounded-2xl border">Cancel</button>
+        <button onclick="addToPortfolio()" class="flex-1 bg-purple-600 py-4 rounded-2xl">Add to Portfolio</button>
       </div>
     </div>
   </div>
 
   <script>
-    let myCoins = JSON.parse(localStorage.getItem('myCryptoCoins')) || [];
+    let portfolio = JSON.parse(localStorage.getItem('myPortfolio')) || [];
 
-    function saveMyCoins() {
-      localStorage.setItem('myCryptoCoins', JSON.stringify(myCoins));
+    function savePortfolio() {
+      localStorage.setItem('myPortfolio', JSON.stringify(portfolio));
     }
 
     async function loadTop100() {
@@ -77,10 +81,23 @@
         const coins = await res.json();
 
         let html = '';
-        for (let coin of coins) {
+        coins.forEach(coin => {
           const analysis = getBasicAnalysis(coin);
-          html += createRow(coin, analysis);
-        }
+          html += `
+            <tr onclick="showFullDetail('${coin.id}', '${coin.name}', '${coin.symbol}', ${coin.current_price})" class="border-b border-zinc-800 cursor-pointer">
+              <td class="p-4">${coin.market_cap_rank}</td>
+              <td class="p-4 flex items-center gap-3">
+                <img src="${coin.image}" width="32" class="rounded-full">
+                <div><div class="font-semibold">${coin.name}</div><div class="text-xs text-zinc-500">${coin.symbol.toUpperCase()}</div></div>
+              </td>
+              <td class="p-4 text-right font-mono">$${coin.current_price.toLocaleString()}</td>
+              <td class="p-4 text-right ${coin.price_change_percentage_24h >= 0 ? 'text-green-400' : 'text-red-400'}">
+                ${coin.price_change_percentage_24h?.toFixed(2) || 0}%
+              </td>
+              <td class="p-4 text-center"><span class="px-5 py-2 rounded-2xl text-sm font-bold ${analysis.cls}">${analysis.signal}</span></td>
+              <td class="p-4 text-center font-bold">${analysis.confidence}%</td>
+            </tr>`;
+        });
         tbody.innerHTML = html;
       } catch(e) {
         tbody.innerHTML = `<tr><td colspan="6" class="text-red-400 text-center py-12">Error loading data</td></tr>`;
@@ -89,188 +106,195 @@
 
     function getBasicAnalysis(coin) {
       const ch = coin.price_change_percentage_24h || 0;
-      let score = 50;
-      if (ch > 5) score += 25;
-      if (ch < -5) score -= 30;
-      if (coin.total_volume > 1e9) score += 12;
-      score = Math.max(35, Math.min(95, score));
+      let score = 50 + (ch * 2);
+      if (coin.total_volume > 1e9) score += 15;
+      score = Math.max(35, Math.min(95, Math.round(score)));
 
       let signal = "Neutral", cls = "bg-zinc-700";
-      if (score >= 72) { signal = "Strong Buy"; cls = "buy"; }
-      else if (score >= 58) { signal = "Buy"; cls = "buy"; }
-      else if (score <= 42) { signal = "Strong Sell"; cls = "sell"; }
-      else if (score <= 50) { signal = "Sell"; cls = "sell"; }
-
+      if (score >= 73) { signal = "Strong Buy"; cls = "buy"; }
+      else if (score >= 60) { signal = "Buy"; cls = "buy"; }
+      else if (score <= 40) { signal = "Strong Sell"; cls = "sell"; }
+      else if (score <= 52) { signal = "Sell"; cls = "sell"; }
       return { signal, cls, confidence: score };
     }
 
-    function createRow(coin, analysis) {
-      return `
-        <tr onclick="showFullDetail('${coin.id}', '${coin.name}', '${coin.symbol}', ${coin.current_price})" class="border-b border-zinc-800 cursor-pointer">
-          <td class="p-4">${coin.market_cap_rank}</td>
-          <td class="p-4 flex items-center gap-3">
-            <img src="${coin.image}" width="32" class="rounded-full">
-            <div><div class="font-semibold">${coin.name}</div><div class="text-xs text-zinc-500">${coin.symbol.toUpperCase()}</div></div>
-          </td>
-          <td class="p-4 text-right font-mono">$${coin.current_price.toLocaleString()}</td>
-          <td class="p-4 text-right ${coin.price_change_percentage_24h >= 0 ? 'text-green-400' : 'text-red-400'}">
-            ${coin.price_change_percentage_24h ? coin.price_change_percentage_24h.toFixed(2) : '0'}%
-          </td>
-          <td class="p-4 text-center"><span class="px-5 py-2 rounded-2xl text-sm font-bold ${analysis.cls}">${analysis.signal}</span></td>
-          <td class="p-4 text-center font-bold">${analysis.confidence}%</td>
-        </tr>`;
-    }
-
-    // ==================== REAL ANALYSIS ====================
+    // ================= REAL REASONS =================
     async function showFullDetail(coinId, name, symbol, price) {
       const modal = document.getElementById('detailModal');
       document.getElementById('modalCoinName').textContent = `${name} (${symbol.toUpperCase()})`;
       const content = document.getElementById('modalContent');
-      
-      content.innerHTML = `<div class="py-20 text-center"><i class="fas fa-spinner fa-spin text-4xl"></i><br><br>Calculating RSI, EMA, MACD...</div>`;
+
+      content.innerHTML = `<div class="py-20 text-center"><i class="fas fa-spinner fa-spin text-4xl"></i><br>Analyzing RSI, EMA, MACD...</div>`;
       modal.classList.remove('hidden');
 
       try {
-        // Historical data for real calculation
-        const res = await fetch(`https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=30&interval=daily`);
+        const res = await fetch(`https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=30`);
         const data = await res.json();
         const prices = data.prices.map(p => p[1]);
 
-        const analysis = calculateRealIndicators(prices, price);
-        
-        let reasonsHTML = analysis.reasons.map(r => 
-          `<li class="flex gap-3 items-start"><i class="fas fa-check-circle mt-1 ${r.includes('Bearish') || r.includes('Overbought') ? 'text-red-500' : 'text-green-500'}"></i> ${r}</li>`
-        ).join('');
+        const analysis = calculateRealAnalysis(prices, price);
 
         content.innerHTML = `
           <div class="space-y-8">
-            <div class="flex justify-between items-center">
+            <div class="flex justify-between">
               <div class="text-4xl font-mono">$${price.toLocaleString()}</div>
-              <div>
-                <span class="text-5xl font-bold">${analysis.confidence}<span class="text-xl">/100</span></span>
-              </div>
+              <div class="text-5xl font-bold">${analysis.confidence}<span class="text-xl">/100</span></div>
             </div>
 
             <div>
               <h3 class="font-semibold mb-4">📋 Live Technical Reasons</h3>
-              <ul class="space-y-3 text-zinc-300">${reasonsHTML}</ul>
+              <ul class="space-y-3">${analysis.reasons.map(r => `<li class="flex gap-3"><i class="fas fa-circle-dot mt-1.5 ${r.toLowerCase().includes('bear') || r.toLowerCase().includes('overbought') ? 'text-red-500' : 'text-green-500'}"></i> ${r}</li>`).join('')}</ul>
             </div>
 
             <div class="grid grid-cols-2 gap-6">
               <div>
                 <h3 class="text-green-400 font-semibold mb-3">🎯 Take Profit</h3>
                 <div class="bg-zinc-800 p-5 rounded-2xl space-y-3">
-                  <p>TP1: <span class="font-mono">$${(price * 1.06).toFixed(2)}</span> (+6%)</p>
-                  <p>TP2: <span class="font-mono">$${(price * 1.15).toFixed(2)}</span> (+15%)</p>
-                  <p>TP3: <span class="font-mono">$${(price * 1.25).toFixed(2)}</span> (+25%)</p>
+                  <p>TP1: $${(price*1.06).toFixed(2)} (+6%)</p>
+                  <p>TP2: $${(price*1.15).toFixed(2)} (+15%)</p>
+                  <p>TP3: $${(price*1.25).toFixed(2)} (+25%)</p>
                 </div>
               </div>
               <div>
                 <h3 class="text-red-400 font-semibold mb-3">🛑 Stop Loss</h3>
                 <div class="bg-zinc-800 p-5 rounded-2xl space-y-3">
-                  <p>SL1: <span class="font-mono">$${(price * 0.94).toFixed(2)}</span> (-6%)</p>
-                  <p>SL2: <span class="font-mono">$${(price * 0.89).toFixed(2)}</span> (-11%)</p>
+                  <p>SL1: $${(price*0.94).toFixed(2)} (-6%)</p>
+                  <p>SL2: $${(price*0.88).toFixed(2)} (-12%)</p>
                 </div>
               </div>
             </div>
           </div>
         `;
       } catch(e) {
-        content.innerHTML = `<p class="text-red-400">Error calculating indicators. Please try again.</p>`;
+        content.innerHTML = `<p class="text-red-400">Technical analysis failed. Try again.</p>`;
       }
     }
 
-    function calculateRealIndicators(prices, currentPrice) {
-      if (prices.length < 14) {
-        return { confidence: 50, reasons: ["Not enough data for analysis"] };
-      }
+    function calculateRealAnalysis(prices, currentPrice) {
+      if (prices.length < 14) return {confidence: 50, reasons: ["Not enough data"]};
 
-      const lastPrice = prices[prices.length-1];
       const rsi = calculateRSI(prices);
-      const emaShort = calculateEMA(prices, 12);
-      const emaLong = calculateEMA(prices, 26);
-      const momentum = ((lastPrice - prices[prices.length-7]) / prices[prices.length-7]) * 100;
+      const ema12 = calculateEMA(prices, 12);
+      const ema26 = calculateEMA(prices, 26);
+      const momentum = ((prices[prices.length-1] - prices[prices.length-8]) / prices[prices.length-8]) * 100;
 
       let score = 50;
       let reasons = [];
 
-      // RSI
-      if (rsi < 35) { score += 25; reasons.push("RSI Oversold (<35) - Potential Reversal"); }
-      else if (rsi > 65) { score -= 25; reasons.push("RSI Overbought (>65) - Possible Pullback"); }
-      else reasons.push(`RSI Neutral (${rsi.toFixed(1)})`);
+      if (rsi < 32) { score += 28; reasons.push("RSI strongly oversold (<32) → Strong Buy signal"); }
+      else if (rsi > 68) { score -= 28; reasons.push("RSI overbought (>68) → Sell / Take profit"); }
+      else reasons.push(`RSI at ${rsi.toFixed(1)} (Neutral)`);
 
-      // EMA Crossover
-      if (emaShort > emaLong) { score += 20; reasons.push("Short EMA above Long EMA - Bullish Trend"); }
-      else { score -= 15; reasons.push("Short EMA below Long EMA - Bearish Trend"); }
+      if (ema12 > ema26) { score += 22; reasons.push("EMA12 above EMA26 → Bullish trend"); }
+      else { score -= 18; reasons.push("EMA12 below EMA26 → Bearish trend"); }
 
-      // Momentum
-      if (momentum > 8) { score += 18; reasons.push("Strong Positive Momentum"); }
-      else if (momentum < -8) { score -= 20; reasons.push("Strong Negative Momentum"); }
+      if (momentum > 10) { score += 20; reasons.push("Strong upward momentum"); }
+      else if (momentum < -8) { score -= 22; reasons.push("Strong downward momentum"); }
 
-      const confidence = Math.max(35, Math.min(95, Math.round(score)));
-
-      return { confidence, reasons };
+      return { confidence: Math.max(35, Math.min(95, Math.round(score))), reasons };
     }
 
-    function calculateRSI(prices, period = 14) {
+    function calculateRSI(prices, period=14) {
       let gains = 0, losses = 0;
-      for (let i = 1; i < period + 1; i++) {
-        const change = prices[i] - prices[i-1];
-        if (change > 0) gains += change;
-        else losses -= change;
+      for (let i = 1; i <= period; i++) {
+        const diff = prices[i] - prices[i-1];
+        if (diff > 0) gains += diff; else losses -= diff;
       }
-      const avgGain = gains / period;
-      const avgLoss = losses / period;
-      if (avgLoss === 0) return 100;
-      const rs = avgGain / avgLoss;
+      const rs = gains / losses;
       return 100 - (100 / (1 + rs));
     }
 
     function calculateEMA(prices, period) {
       let ema = prices[0];
-      const multiplier = 2 / (period + 1);
+      const k = 2 / (period + 1);
       for (let i = 1; i < prices.length; i++) {
-        ema = (prices[i] * multiplier) + (ema * (1 - multiplier));
+        ema = prices[i] * k + ema * (1 - k);
       }
       return ema;
     }
 
-    // Add Coin + My Favorites functions (same as before)
-    function showAddModal() { document.getElementById('addModal').classList.remove('hidden'); }
-    function hideAddModal() { document.getElementById('addModal').classList.add('hidden'); }
+    function closeModal() {
+      document.getElementById('detailModal').classList.add('hidden');
+    }
 
-    async function searchAndAddCoin() {
-      const query = document.getElementById('coinInput').value.trim();
-      if (!query) return;
-      hideAddModal();
+    // Portfolio Functions
+    function showPortfolioModal() {
+      document.getElementById('portfolioModal').classList.remove('hidden');
+    }
+
+    function hidePortfolioModal() {
+      document.getElementById('portfolioModal').classList.add('hidden');
+    }
+
+    async function addToPortfolio() {
+      const query = document.getElementById('portCoinInput').value.trim();
+      const qty = parseFloat(document.getElementById('portQuantity').value);
+
+      if (!query || !qty) return alert("Coin aur quantity dono daalo");
+
+      hidePortfolioModal();
 
       try {
         const s = await fetch(`https://api.coingecko.com/api/v3/search?query=${query}`);
         const data = await s.json();
-        if (data.coins?.[0]) {
-          const c = data.coins[0];
-          const m = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${c.id}`);
-          const coinData = (await m.json())[0];
-          myCoins.unshift(coinData);
-          saveMyCoins();
-          renderMyCoins();
-        }
-      } catch(e) { alert("Coin not found"); }
+        const coin = data.coins[0];
+        if (!coin) return alert("Coin not found");
+
+        const m = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${coin.id}`);
+        const coinData = (await m.json())[0];
+
+        portfolio.push({
+          ...coinData,
+          quantity: qty,
+          addedAt: new Date().toISOString()
+        });
+
+        savePortfolio();
+        renderPortfolio();
+      } catch(e) {
+        alert("Error adding coin");
+      }
     }
 
-    function renderMyCoins() {
-      const tbody = document.querySelector('#myTable tbody');
+    function renderPortfolio() {
+      let totalValue = 0;
       let html = '';
-      myCoins.forEach(coin => {
-        const analysis = getBasicAnalysis(coin);
-        html += createRow(coin, analysis);
+
+      portfolio.forEach((item, index) => {
+        const currentValue = item.current_price * item.quantity;
+        totalValue += currentValue;
+        html += `
+          <tr class="border-b border-zinc-800">
+            <td class="p-4 flex items-center gap-3">
+              <img src="${item.image}" width="28" class="rounded-full">
+              <div>${item.name} <span class="text-xs text-zinc-500">(${item.quantity})</span></div>
+            </td>
+            <td class="p-4 text-right">$${item.current_price.toLocaleString()}</td>
+            <td class="p-4 text-right font-bold">$${currentValue.toLocaleString()}</td>
+            <td class="p-4 text-center">
+              <button onclick="removeFromPortfolio(${index})" class="text-red-500 hover:text-red-400">Remove</button>
+            </td>
+          </tr>`;
       });
-      tbody.innerHTML = html || `<tr><td colspan="6" class="text-center py-12 text-zinc-500">No favorite coins added yet</td></tr>`;
+
+      document.getElementById('portfolioSummary').innerHTML = `
+        <strong>Total Portfolio Value: $${totalValue.toLocaleString()}</strong> 
+        (${portfolio.length} coins)
+      `;
+
+      document.querySelector('#portfolioTable tbody').innerHTML = html || `<tr><td colspan="4" class="text-center py-12 text-zinc-500">Portfolio empty hai. Add coins from Portfolio button.</td></tr>`;
     }
 
+    function removeFromPortfolio(index) {
+      portfolio.splice(index, 1);
+      savePortfolio();
+      renderPortfolio();
+    }
+
+    // Init
     window.onload = () => {
       loadTop100();
-      renderMyCoins();
+      renderPortfolio();
       setInterval(loadTop100, 120000);
     };
   </script>
