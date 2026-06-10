@@ -10,38 +10,45 @@
     body { font-family: system-ui, sans-serif; }
     .buy { background-color: #166534; color: #86efac; }
     .sell { background-color: #991b1b; color: #fda4af; }
-    tr:hover { background-color: #27272a; }
+    .tab-active { border-bottom: 3px solid #3b82f6; font-weight: bold; }
   </style>
 </head>
 <body class="bg-zinc-950 text-white">
   <div class="max-w-7xl mx-auto p-6">
     <h1 class="text-4xl font-bold text-center mb-2">🚀 Live Crypto Signals</h1>
-    <p class="text-center text-zinc-400 mb-8">Real Technical Analysis + Portfolio Tracker</p>
+    <p class="text-center text-zinc-400 mb-8">Real Technical Analysis + Portfolio</p>
 
-    <div class="flex gap-4 mb-8">
-      <button onclick="loadTop100()" class="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-2xl flex items-center gap-2">
+    <!-- Tabs -->
+    <div class="flex border-b border-zinc-700 mb-8">
+      <button onclick="switchTab(0)" id="tab0" class="tab-active px-8 py-4">📊 Signals (Top 100)</button>
+      <button onclick="switchTab(1)" id="tab1" class="px-8 py-4">💼 Portfolio</button>
+    </div>
+
+    <!-- Signals Tab -->
+    <div id="content0">
+      <button onclick="loadTop100()" class="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-2xl mb-6 flex items-center gap-2">
         <i class="fas fa-sync"></i> Refresh Signals
       </button>
-      <button onclick="showPortfolioModal()" class="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-2xl flex items-center gap-2">
-        <i class="fas fa-briefcase"></i> Portfolio
+      <div class="overflow-x-auto">
+        <table class="w-full" id="topTable"><tbody></tbody></table>
+      </div>
+    </div>
+
+    <!-- Portfolio Tab -->
+    <div id="content1" class="hidden">
+      <button onclick="showAddToPortfolioModal()" class="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-2xl mb-6 flex items-center gap-2">
+        <i class="fas fa-plus"></i> Add Coin to Portfolio
       </button>
-    </div>
 
-    <!-- Signals Section -->
-    <h2 class="text-2xl font-bold mb-4">📊 Top 100 Coins Signals</h2>
-    <div class="overflow-x-auto mb-12">
-      <table class="w-full" id="topTable"><tbody></tbody></table>
-    </div>
-
-    <!-- Portfolio Section -->
-    <h2 class="text-2xl font-bold mb-4">💼 My Portfolio</h2>
-    <div id="portfolioSummary" class="bg-zinc-900 p-5 rounded-3xl mb-6 text-lg"></div>
-    <div class="overflow-x-auto">
-      <table class="w-full" id="portfolioTable"><tbody></tbody></table>
+      <div id="portfolioSummary" class="bg-zinc-900 p-6 rounded-3xl mb-6 text-xl font-semibold"></div>
+      
+      <div class="overflow-x-auto">
+        <table class="w-full" id="portfolioTable"><tbody></tbody></table>
+      </div>
     </div>
   </div>
 
-  <!-- Detail Modal -->
+  <!-- Coin Detail Modal -->
   <div id="detailModal" class="hidden fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
     <div class="bg-zinc-900 rounded-3xl max-w-2xl w-full max-h-[95vh] overflow-auto">
       <div class="p-6 border-b border-zinc-700 flex justify-between sticky top-0 bg-zinc-900">
@@ -52,15 +59,15 @@
     </div>
   </div>
 
-  <!-- Portfolio Add Modal -->
-  <div id="portfolioModal" class="hidden fixed inset-0 bg-black/90 flex items-center justify-center z-50">
-    <div class="bg-zinc-900 p-8 rounded-3xl w-full max-w-lg">
-      <h3 class="text-2xl mb-6">Add to Portfolio</h3>
-      <input id="portCoinInput" placeholder="bitcoin, solana..." class="w-full bg-zinc-800 px-5 py-4 rounded-2xl mb-4">
-      <input id="portQuantity" type="number" placeholder="Quantity (e.g. 2.5)" class="w-full bg-zinc-800 px-5 py-4 rounded-2xl mb-6">
+  <!-- Add to Portfolio Modal -->
+  <div id="addPortfolioModal" class="hidden fixed inset-0 bg-black/90 flex items-center justify-center z-50">
+    <div class="bg-zinc-900 p-8 rounded-3xl w-full max-w-md">
+      <h3 class="text-2xl mb-6">Add Coin to Portfolio</h3>
+      <input id="portCoinInput" placeholder="bitcoin, solana, eth..." class="w-full bg-zinc-800 px-5 py-4 rounded-2xl mb-4">
+      <input id="portQuantity" type="number" step="0.0001" placeholder="Quantity (e.g. 1.25)" class="w-full bg-zinc-800 px-5 py-4 rounded-2xl mb-6">
       <div class="flex gap-3">
-        <button onclick="hidePortfolioModal()" class="flex-1 py-4 rounded-2xl border">Cancel</button>
-        <button onclick="addToPortfolio()" class="flex-1 bg-purple-600 py-4 rounded-2xl">Add to Portfolio</button>
+        <button onclick="hideAddPortfolioModal()" class="flex-1 py-4 rounded-2xl border border-zinc-700">Cancel</button>
+        <button onclick="addToPortfolio()" class="flex-1 bg-purple-600 py-4 rounded-2xl">Add</button>
       </div>
     </div>
   </div>
@@ -70,6 +77,17 @@
 
     function savePortfolio() {
       localStorage.setItem('myPortfolio', JSON.stringify(portfolio));
+    }
+
+    function switchTab(tab) {
+      document.getElementById('content0').classList.add('hidden');
+      document.getElementById('content1').classList.add('hidden');
+      document.getElementById('content' + tab).classList.remove('hidden');
+
+      // Active tab style
+      document.getElementById('tab0').classList.remove('tab-active');
+      document.getElementById('tab1').classList.remove('tab-active');
+      document.getElementById('tab' + tab).classList.add('tab-active');
     }
 
     async function loadTop100() {
@@ -83,20 +101,7 @@
         let html = '';
         coins.forEach(coin => {
           const analysis = getBasicAnalysis(coin);
-          html += `
-            <tr onclick="showFullDetail('${coin.id}', '${coin.name}', '${coin.symbol}', ${coin.current_price})" class="border-b border-zinc-800 cursor-pointer">
-              <td class="p-4">${coin.market_cap_rank}</td>
-              <td class="p-4 flex items-center gap-3">
-                <img src="${coin.image}" width="32" class="rounded-full">
-                <div><div class="font-semibold">${coin.name}</div><div class="text-xs text-zinc-500">${coin.symbol.toUpperCase()}</div></div>
-              </td>
-              <td class="p-4 text-right font-mono">$${coin.current_price.toLocaleString()}</td>
-              <td class="p-4 text-right ${coin.price_change_percentage_24h >= 0 ? 'text-green-400' : 'text-red-400'}">
-                ${coin.price_change_percentage_24h?.toFixed(2) || 0}%
-              </td>
-              <td class="p-4 text-center"><span class="px-5 py-2 rounded-2xl text-sm font-bold ${analysis.cls}">${analysis.signal}</span></td>
-              <td class="p-4 text-center font-bold">${analysis.confidence}%</td>
-            </tr>`;
+          html += createRow(coin, analysis);
         });
         tbody.innerHTML = html;
       } catch(e) {
@@ -107,7 +112,7 @@
     function getBasicAnalysis(coin) {
       const ch = coin.price_change_percentage_24h || 0;
       let score = 50 + (ch * 2);
-      if (coin.total_volume > 1e9) score += 15;
+      if (coin.total_volume > 1e9) score += 12;
       score = Math.max(35, Math.min(95, Math.round(score)));
 
       let signal = "Neutral", cls = "bg-zinc-700";
@@ -118,13 +123,30 @@
       return { signal, cls, confidence: score };
     }
 
-    // ================= REAL REASONS =================
+    function createRow(coin, analysis) {
+      return `
+        <tr onclick="showFullDetail('${coin.id}', '${coin.name}', '${coin.symbol}', ${coin.current_price})" class="border-b border-zinc-800 cursor-pointer hover:bg-zinc-900">
+          <td class="p-4">${coin.market_cap_rank}</td>
+          <td class="p-4 flex items-center gap-3">
+            <img src="${coin.image}" width="32" class="rounded-full">
+            <div><div class="font-semibold">${coin.name}</div><div class="text-xs text-zinc-500">${coin.symbol.toUpperCase()}</div></div>
+          </td>
+          <td class="p-4 text-right font-mono">$${coin.current_price.toLocaleString()}</td>
+          <td class="p-4 text-right ${coin.price_change_percentage_24h >= 0 ? 'text-green-400' : 'text-red-400'}">
+            ${coin.price_change_percentage_24h?.toFixed(2) || 0}%
+          </td>
+          <td class="p-4 text-center"><span class="px-5 py-2 rounded-2xl text-sm font-bold ${analysis.cls}">${analysis.signal}</span></td>
+          <td class="p-4 text-center font-bold">${analysis.confidence}%</td>
+        </tr>`;
+    }
+
+    // Real Technical Analysis Modal
     async function showFullDetail(coinId, name, symbol, price) {
       const modal = document.getElementById('detailModal');
       document.getElementById('modalCoinName').textContent = `${name} (${symbol.toUpperCase()})`;
       const content = document.getElementById('modalContent');
-
-      content.innerHTML = `<div class="py-20 text-center"><i class="fas fa-spinner fa-spin text-4xl"></i><br>Analyzing RSI, EMA, MACD...</div>`;
+      
+      content.innerHTML = `<div class="py-20 text-center"><i class="fas fa-spinner fa-spin text-4xl"></i><br>Calculating live indicators...</div>`;
       modal.classList.remove('hidden');
 
       try {
@@ -136,14 +158,16 @@
 
         content.innerHTML = `
           <div class="space-y-8">
-            <div class="flex justify-between">
+            <div class="flex justify-between items-center">
               <div class="text-4xl font-mono">$${price.toLocaleString()}</div>
               <div class="text-5xl font-bold">${analysis.confidence}<span class="text-xl">/100</span></div>
             </div>
 
             <div>
               <h3 class="font-semibold mb-4">📋 Live Technical Reasons</h3>
-              <ul class="space-y-3">${analysis.reasons.map(r => `<li class="flex gap-3"><i class="fas fa-circle-dot mt-1.5 ${r.toLowerCase().includes('bear') || r.toLowerCase().includes('overbought') ? 'text-red-500' : 'text-green-500'}"></i> ${r}</li>`).join('')}</ul>
+              <ul class="space-y-3 text-zinc-300">
+                ${analysis.reasons.map(r => `<li class="flex gap-3"><i class="fas fa-circle-dot mt-1 ${r.includes('Bearish') || r.includes('overbought') ? 'text-red-500' : 'text-green-500'}"></i> ${r}</li>`).join('')}
+              </ul>
             </div>
 
             <div class="grid grid-cols-2 gap-6">
@@ -166,12 +190,12 @@
           </div>
         `;
       } catch(e) {
-        content.innerHTML = `<p class="text-red-400">Technical analysis failed. Try again.</p>`;
+        content.innerHTML = `<p class="text-red-400">Analysis fail ho gaya. Baad mein try karo.</p>`;
       }
     }
 
     function calculateRealAnalysis(prices, currentPrice) {
-      if (prices.length < 14) return {confidence: 50, reasons: ["Not enough data"]};
+      if (prices.length < 14) return {confidence: 50, reasons: ["Data kam hai"]};
 
       const rsi = calculateRSI(prices);
       const ema12 = calculateEMA(prices, 12);
@@ -181,26 +205,26 @@
       let score = 50;
       let reasons = [];
 
-      if (rsi < 32) { score += 28; reasons.push("RSI strongly oversold (<32) → Strong Buy signal"); }
-      else if (rsi > 68) { score -= 28; reasons.push("RSI overbought (>68) → Sell / Take profit"); }
-      else reasons.push(`RSI at ${rsi.toFixed(1)} (Neutral)`);
+      if (rsi < 35) { score += 25; reasons.push("RSI Oversold (<35) - Strong Buy Chance"); }
+      else if (rsi > 65) { score -= 25; reasons.push("RSI Overbought (>65) - Sell / Caution"); }
+      else reasons.push(`RSI Neutral (${rsi.toFixed(1)})`);
 
-      if (ema12 > ema26) { score += 22; reasons.push("EMA12 above EMA26 → Bullish trend"); }
-      else { score -= 18; reasons.push("EMA12 below EMA26 → Bearish trend"); }
+      if (ema12 > ema26) { score += 22; reasons.push("EMA Bullish Crossover"); }
+      else { score -= 18; reasons.push("EMA Bearish Trend"); }
 
-      if (momentum > 10) { score += 20; reasons.push("Strong upward momentum"); }
-      else if (momentum < -8) { score -= 22; reasons.push("Strong downward momentum"); }
+      if (momentum > 8) reasons.push("Strong Positive Momentum");
+      if (momentum < -8) reasons.push("Strong Negative Momentum");
 
       return { confidence: Math.max(35, Math.min(95, Math.round(score))), reasons };
     }
 
     function calculateRSI(prices, period=14) {
       let gains = 0, losses = 0;
-      for (let i = 1; i <= period; i++) {
+      for (let i = 1; i < period+1; i++) {
         const diff = prices[i] - prices[i-1];
         if (diff > 0) gains += diff; else losses -= diff;
       }
-      const rs = gains / losses;
+      const rs = gains / losses || 1;
       return 100 - (100 / (1 + rs));
     }
 
@@ -218,80 +242,72 @@
     }
 
     // Portfolio Functions
-    function showPortfolioModal() {
-      document.getElementById('portfolioModal').classList.remove('hidden');
+    function showAddToPortfolioModal() {
+      document.getElementById('addPortfolioModal').classList.remove('hidden');
     }
 
-    function hidePortfolioModal() {
-      document.getElementById('portfolioModal').classList.add('hidden');
+    function hideAddPortfolioModal() {
+      document.getElementById('addPortfolioModal').classList.add('hidden');
     }
 
     async function addToPortfolio() {
       const query = document.getElementById('portCoinInput').value.trim();
       const qty = parseFloat(document.getElementById('portQuantity').value);
 
-      if (!query || !qty) return alert("Coin aur quantity dono daalo");
+      if (!query || !qty) return alert("Coin name aur quantity dono daalo");
 
-      hidePortfolioModal();
+      hideAddPortfolioModal();
 
       try {
-        const s = await fetch(`https://api.coingecko.com/api/v3/search?query=${query}`);
-        const data = await s.json();
-        const coin = data.coins[0];
-        if (!coin) return alert("Coin not found");
+        const search = await fetch(`https://api.coingecko.com/api/v3/search?query=${query}`);
+        const sdata = await search.json();
+        const coin = sdata.coins[0];
+        if (!coin) return alert("Coin nahi mila");
 
-        const m = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${coin.id}`);
-        const coinData = (await m.json())[0];
+        const market = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${coin.id}`);
+        const coinData = (await market.json())[0];
 
-        portfolio.push({
-          ...coinData,
-          quantity: qty,
-          addedAt: new Date().toISOString()
-        });
-
+        portfolio.push({ ...coinData, quantity: qty });
         savePortfolio();
         renderPortfolio();
       } catch(e) {
-        alert("Error adding coin");
+        alert("Error: " + e.message);
       }
     }
 
     function renderPortfolio() {
-      let totalValue = 0;
+      let total = 0;
       let html = '';
 
-      portfolio.forEach((item, index) => {
-        const currentValue = item.current_price * item.quantity;
-        totalValue += currentValue;
+      portfolio.forEach((item, i) => {
+        const value = item.current_price * item.quantity;
+        total += value;
+        const analysis = getBasicAnalysis(item);
         html += `
           <tr class="border-b border-zinc-800">
             <td class="p-4 flex items-center gap-3">
-              <img src="${item.image}" width="28" class="rounded-full">
+              <img src="${item.image}" width="32" class="rounded-full">
               <div>${item.name} <span class="text-xs text-zinc-500">(${item.quantity})</span></div>
             </td>
             <td class="p-4 text-right">$${item.current_price.toLocaleString()}</td>
-            <td class="p-4 text-right font-bold">$${currentValue.toLocaleString()}</td>
-            <td class="p-4 text-center">
-              <button onclick="removeFromPortfolio(${index})" class="text-red-500 hover:text-red-400">Remove</button>
-            </td>
+            <td class="p-4 text-right font-bold">$${value.toLocaleString()}</td>
+            <td class="p-4 text-center"><span class="px-4 py-1 rounded-2xl text-sm ${analysis.cls}">${analysis.signal}</span></td>
+            <td class="p-4 text-center"><button onclick="removeFromPortfolio(${i})" class="text-red-500">Remove</button></td>
           </tr>`;
       });
 
-      document.getElementById('portfolioSummary').innerHTML = `
-        <strong>Total Portfolio Value: $${totalValue.toLocaleString()}</strong> 
-        (${portfolio.length} coins)
-      `;
+      document.getElementById('portfolioSummary').innerHTML = `Total Portfolio Value: <span class="text-green-400">$${total.toLocaleString()}</span> (${portfolio.length} coins)`;
 
-      document.querySelector('#portfolioTable tbody').innerHTML = html || `<tr><td colspan="4" class="text-center py-12 text-zinc-500">Portfolio empty hai. Add coins from Portfolio button.</td></tr>`;
+      document.querySelector('#portfolioTable tbody').innerHTML = html || `<tr><td colspan="5" class="text-center py-12 text-zinc-500">Portfolio khali hai. Add coins button se shuru karo.</td></tr>`;
     }
 
-    function removeFromPortfolio(index) {
-      portfolio.splice(index, 1);
+    function removeFromPortfolio(i) {
+      portfolio.splice(i, 1);
       savePortfolio();
       renderPortfolio();
     }
 
-    // Init
+    // Initialize
     window.onload = () => {
       loadTop100();
       renderPortfolio();
