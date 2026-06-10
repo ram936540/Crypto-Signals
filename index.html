@@ -3,155 +3,180 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Crypto Signals - Top 100</title>
+  <title>Smart Crypto Signals</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
   <style>
-    body { font-family: 'Segoe UI', sans-serif; }
     .signal-buy { background-color: #166534; color: #86efac; }
     .signal-sell { background-color: #991b1b; color: #fda4af; }
-    .signal-neutral { background-color: #44403c; color: #d1d5db; }
   </style>
 </head>
 <body class="bg-zinc-950 text-white">
   <div class="max-w-7xl mx-auto p-6">
-    <h1 class="text-4xl font-bold mb-2 text-center">🚀 Crypto Buy/Sell Signals</h1>
-    <p class="text-center text-zinc-400 mb-2">Top 100 Cryptocurrencies • Supabase + Live Signals</p>
-    
-    <div class="flex justify-between items-center mb-6">
-      <button onclick="loadData()" class="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-xl font-medium flex items-center gap-2">
-        <i class="fas fa-sync"></i> Refresh
-      </button>
-      <div id="lastUpdated" class="text-sm text-zinc-500"></div>
+    <h1 class="text-4xl font-bold text-center mb-2">🚀 Smart Crypto Signals</h1>
+    <p class="text-center text-zinc-400 mb-8">Add Any Coin • Multiple Confirmations • TP/SL + Confidence</p>
+
+    <!-- Add Coin Section -->
+    <div class="bg-zinc-900 p-6 rounded-3xl mb-8">
+      <h2 class="text-xl mb-4">Add Coin for Analysis</h2>
+      <div class="flex gap-3">
+        <input id="coinSearch" placeholder="e.g. bitcoin, ethereum, solana" class="flex-1 bg-zinc-800 px-5 py-4 rounded-2xl focus:outline-none">
+        <button onclick="searchAndAnalyze()" class="bg-blue-600 hover:bg-blue-700 px-8 py-4 rounded-2xl font-medium">Analyze</button>
+      </div>
     </div>
 
-    <div class="overflow-x-auto">
-      <table class="w-full border-collapse">
-        <thead>
-          <tr class="bg-zinc-900">
-            <th class="p-4 text-left">#</th>
-            <th class="p-4 text-left">Coin</th>
-            <th class="p-4 text-right">Price (USD)</th>
-            <th class="p-4 text-right">24h %</th>
-            <th class="p-4 text-right">7d %</th>
-            <th class="p-4 text-center">Signal</th>
-            <th class="p-4 text-center">Strength</th>
-          </tr>
-        </thead>
-        <tbody id="cryptoTable" class="text-sm"></tbody>
-      </table>
-    </div>
+    <div id="result" class="hidden bg-zinc-900 rounded-3xl p-8"></div>
 
-    <div class="mt-8 text-xs text-zinc-500 text-center">
-      <p><strong>Disclaimer:</strong> Educational purpose only. Not financial advice. Apna research karo.</p>
+    <div class="mt-10 text-xs text-zinc-500 text-center">
+      <strong>Disclaimer:</strong> Educational only. Not financial advice. Backtest karo pehle.
     </div>
   </div>
 
   <script>
-    // === SUPABASE CONFIG (Yahan apna daal do) ===
-    const SUPABASE_URL = 'https://hfjgukyubgcepqmzoxam.supabase.co';   // ← Change this
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmamd1a3l1YmdjZXBxbXpveGFtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNDQ5NDcsImV4cCI6MjA5NjYyMDk0N30.Rn8mB2BeFzOhUsExfDZhQ2t1a54T6vOdKHf7hy4jOCA';               // ← Change this
-
+    const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
+    const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';
     const supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    async function loadData() {
-      const tableBody = document.getElementById('cryptoTable');
-      tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10"><i class="fas fa-spinner fa-spin text-3xl"></i><br>Loading signals...</td></tr>`;
+    // Simple TA calculations (historical data ke liye)
+    async function getHistoricalData(coinId) {
+      const res = await fetch(`https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=30&interval=daily`);
+      const data = await res.json();
+      return data.prices.map(p => p[1]); // closing prices
+    }
+
+    function calculateIndicators(prices) {
+      if (prices.length < 30) return { rsi: 50, macd: 0, emaFast: 0, emaSlow: 0 };
+
+      const n = prices.length;
+      const rsi = prices[n-1] > prices[n-14] ? 65 : 35; // simplified
+      const emaFast = prices[n-1] * 0.1 + prices[n-2] * 0.9;
+      const emaSlow = prices[n-1] * 0.05 + prices[n-2] * 0.95;
+
+      return {
+        rsi: Math.min(85, Math.max(15, rsi)),
+        macd: emaFast - emaSlow,
+        emaBullish: emaFast > emaSlow,
+        momentum: (prices[n-1] - prices[n-7]) / prices[n-7] * 100
+      };
+    }
+
+    function generateSignal(ind, currentPrice) {
+      let score = 50;
+      let reasons = [];
+      let signal = "Neutral";
+
+      // Multiple Confirmations
+      if (ind.rsi < 35) { score += 20; reasons.push("RSI Oversold"); }
+      if (ind.rsi > 65) { score -= 20; reasons.push("RSI Overbought"); }
+      if (ind.emaBullish) { score += 15; reasons.push("EMA Bullish Crossover"); }
+      if (ind.momentum > 5) { score += 15; reasons.push("Strong Momentum"); }
+      if (ind.macd > 0) { score += 10; reasons.push("MACD Positive"); }
+
+      if (score > 75) signal = "Strong Buy";
+      else if (score > 60) signal = "Buy";
+      else if (score < 35) signal = "Strong Sell";
+      else if (score < 45) signal = "Sell";
+
+      // TP/SL Calculation (Risk-Reward)
+      const tp1 = (signal.includes("Buy") ? currentPrice * 1.05 : currentPrice * 0.95).toFixed(2);
+      const tp2 = (signal.includes("Buy") ? currentPrice * 1.12 : currentPrice * 0.88).toFixed(2);
+      const tp3 = (signal.includes("Buy") ? currentPrice * 1.20 : currentPrice * 0.80).toFixed(2);
+      const sl1 = (signal.includes("Buy") ? currentPrice * 0.96 : currentPrice * 1.05).toFixed(2);
+      const sl2 = (signal.includes("Buy") ? currentPrice * 0.92 : currentPrice * 1.10).toFixed(2);
+
+      return {
+        signal,
+        confidence: Math.round(Math.min(95, Math.max(30, score))),
+        reasons,
+        tp: [tp1, tp2, tp3],
+        sl: [sl1, sl2],
+        price: currentPrice
+      };
+    }
+
+    async function searchAndAnalyze() {
+      const query = document.getElementById('coinSearch').value.trim().toLowerCase();
+      if (!query) return alert("Coin naam daalo");
+
+      const resultDiv = document.getElementById('result');
+      resultDiv.classList.remove('hidden');
+      resultDiv.innerHTML = `<p class="text-center py-10"><i class="fas fa-spinner fa-spin"></i> Analyzing ${query}...</p>`;
 
       try {
-        // Pehle Supabase se try karo
-        const { data: signals, error } = await supabase
-          .from('crypto_signals')
-          .select('*')
-          .order('timestamp', { ascending: false })
-          .limit(100);
+        // Search coin
+        const searchRes = await fetch(`https://api.coingecko.com/api/v3/search?query=${query}`);
+        const searchData = await searchRes.json();
+        const coin = searchData.coins[0];
+        if (!coin) throw new Error("Coin not found");
 
-        if (!error && signals && signals.length > 0) {
-          renderTable(signals);
-          return;
-        }
+        // Get current price + history
+        const marketRes = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${coin.id}`);
+        const market = (await marketRes.json())[0];
 
-        // Agar Supabase mein data nahi hai to CoinGecko fallback
-        console.log("Supabase empty, using CoinGecko fallback");
-        const res = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&price_change_percentage=24h,7d');
-        const coins = await res.json();
-        const fallbackData = coins.map(coin => ({
-          market_cap_rank: coin.market_cap_rank,
+        const prices = await getHistoricalData(coin.id);
+        const ind = calculateIndicators(prices);
+        const analysis = generateSignal(ind, market.current_price);
+
+        let html = `
+          <div class="flex justify-between items-start">
+            <div class="flex items-center gap-4">
+              <img src="${coin.thumb}" class="w-12 h-12 rounded-full">
+              <div>
+                <h2 class="text-3xl font-bold">${coin.name} (${coin.symbol.toUpperCase()})</h2>
+                <p class="text-2xl font-mono">$${market.current_price.toLocaleString()}</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <span class="px-6 py-3 text-xl font-bold rounded-3xl ${analysis.signal.includes('Buy') ? 'signal-buy' : 'signal-sell'}">
+                ${analysis.signal}
+              </span>
+              <p class="mt-2 text-3xl font-bold">${analysis.confidence}<span class="text-sm">/100</span></p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-10">
+            <div>
+              <h3 class="font-semibold mb-3 text-lg">📋 Signal Reasons (Multiple Confirmations)</h3>
+              <ul class="space-y-2">
+                ${analysis.reasons.map(r => `<li class="flex items-center gap-2"><i class="fas fa-check text-green-400"></i> ${r}</li>`).join('')}
+              </ul>
+            </div>
+
+            <div>
+              <h3 class="font-semibold mb-3 text-lg">🎯 Take Profit & Stop Loss</h3>
+              <div class="space-y-4">
+                <div class="bg-zinc-800 p-5 rounded-2xl">
+                  <p class="text-green-400 font-medium">Take Profits</p>
+                  <p>TP1: $${analysis.tp[0]} (+5%)</p>
+                  <p>TP2: $${analysis.tp[1]} (+12%)</p>
+                  <p>TP3: $${analysis.tp[2]} (+20%)</p>
+                </div>
+                <div class="bg-zinc-800 p-5 rounded-2xl">
+                  <p class="text-red-400 font-medium">Stop Losses</p>
+                  <p>SL1: $${analysis.sl[0]}</p>
+                  <p>SL2: $${analysis.sl[1]}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        resultDiv.innerHTML = html;
+
+        // Optional: Save to Supabase
+        await supabase.from('user_signals').insert({
+          coin_id: coin.id,
           name: coin.name,
-          symbol: coin.symbol.toUpperCase(),
-          image: coin.image,
-          current_price: coin.current_price,
-          price_change_percentage_24h: coin.price_change_percentage_24h || 0,
-          price_change_percentage_7d_in_currency: coin.price_change_percentage_7d_in_currency || 0,
-          signal: getSimpleSignal(coin),
-          strength: coin.market_cap_rank < 30 ? 'High' : 'Medium'
-        }));
-        renderTable(fallbackData);
+          signal: analysis.signal,
+          confidence: analysis.confidence,
+          timestamp: new Date()
+        });
+
       } catch (e) {
-        tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-red-400">Error: ${e.message}</td></tr>`;
+        resultDiv.innerHTML = `<p class="text-red-400 text-center py-10">Error: ${e.message}. Try again.</p>`;
       }
     }
-
-    function getSimpleSignal(coin) {
-      const ch24 = coin.price_change_percentage_24h || 0;
-      const ch7 = coin.price_change_percentage_7d_in_currency || 0;
-      
-      if (ch24 > 4 && ch7 > 8) return { text: 'Strong Buy', class: 'signal-buy' };
-      if (ch24 > 2 && ch7 > 4) return { text: 'Buy', class: 'signal-buy' };
-      if (ch24 < -4 && ch7 < -8) return { text: 'Strong Sell', class: 'signal-sell' };
-      if (ch24 < -2 && ch7 < -4) return { text: 'Sell', class: 'signal-sell' };
-      return { text: 'Neutral', class: 'signal-neutral' };
-    }
-
-    function renderTable(data) {
-      const tableBody = document.getElementById('cryptoTable');
-      let html = '';
-
-      data.forEach(item => {
-        const ch24 = item.price_change_percentage_24h || item['price_change_percentage_24h'] || 0;
-        const ch7d = item.price_change_percentage_7d_in_currency || item['price_change_percentage_7d_in_currency'] || 0;
-        const signalInfo = typeof item.signal === 'string' 
-          ? { text: item.signal, class: item.signal.includes('Buy') ? 'signal-buy' : item.signal.includes('Sell') ? 'signal-sell' : 'signal-neutral' }
-          : getSimpleSignal(item);
-
-        html += `
-          <tr class="border-b border-zinc-800 hover:bg-zinc-900 transition-colors">
-            <td class="p-4">${item.market_cap_rank || '#'}</td>
-            <td class="p-4 flex items-center gap-3">
-              <img src="${item.image}" width="28" height="28" class="rounded-full" alt="${item.name}">
-              <div>
-                <div class="font-semibold">${item.name}</div>
-                <div class="text-xs text-zinc-500">${item.symbol}</div>
-              </div>
-            </td>
-            <td class="p-4 text-right font-mono">$${Number(item.current_price || item.price).toLocaleString()}</td>
-            <td class="p-4 text-right ${ch24 >= 0 ? 'text-green-400' : 'text-red-400'}">
-              ${ch24.toFixed(2)}%
-            </td>
-            <td class="p-4 text-right ${ch7d >= 0 ? 'text-green-400' : 'text-red-400'}">
-              ${ch7d.toFixed(2)}%
-            </td>
-            <td class="p-4 text-center">
-              <span class="px-5 py-2 rounded-2xl text-sm font-bold ${signalInfo.class}">
-                ${signalInfo.text}
-              </span>
-            </td>
-            <td class="p-4 text-center">
-              <span class="px-4 py-1 bg-zinc-800 rounded-full text-xs">${item.strength || 'Medium'}</span>
-            </td>
-          </tr>
-        `;
-      });
-
-      tableBody.innerHTML = html;
-      document.getElementById('lastUpdated').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
-    }
-
-    // Auto load
-    window.onload = loadData;
-    // Auto refresh every 2 minutes
-    setInterval(loadData, 120000);
   </script>
 </body>
 </html>
