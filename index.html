@@ -1,4 +1,96 @@
-html += 
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crypto Signals - Top 100</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; }
+    .signal-buy { background-color: #166534; color: #86efac; }
+    .signal-sell { background-color: #991b1b; color: #fda4af; }
+    .signal-neutral { background-color: #44403c; color: #d1d5db; }
+  </style>
+</head>
+<body class="bg-zinc-950 text-white">
+  <div class="max-w-7xl mx-auto p-6">
+    <h1 class="text-4xl font-bold mb-2 text-center">🚀 Crypto Buy/Sell Signals</h1>
+    <p class="text-center text-zinc-400 mb-8">Top Cryptocurrencies • Multiple Confirmations</p>
+    
+    <div class="flex justify-between items-center mb-6">
+      <button onclick="loadData()" class="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-xl font-medium flex items-center gap-2">
+        <i class="fas fa-sync"></i> Refresh Data
+      </button>
+      <div id="lastUpdated" class="text-sm text-zinc-500"></div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full border-collapse">
+        <thead>
+          <tr class="bg-zinc-900">
+            <th class="p-4 text-left">#</th>
+            <th class="p-4 text-left">Coin</th>
+            <th class="p-4 text-right">Price (USD)</th>
+            <th class="p-4 text-right">24h %</th>
+            <th class="p-4 text-right">7d %</th>
+            <th class="p-4 text-center">Signal</th>
+            <th class="p-4 text-center">Strength</th>
+          </tr>
+        </thead>
+        <tbody id="cryptoTable" class="text-sm"></tbody>
+      </table>
+    </div>
+
+    <div class="mt-8 text-xs text-zinc-500 text-center">
+      <p><strong>Disclaimer:</strong> Yeh educational demo hai. Trading signals guarantee nahi hain. Apna research karo. Not financial advice.</p>
+      <p class="mt-2">Data from CoinGecko • Real-time indicators (simplified for single file)</p>
+    </div>
+  </div>
+
+  <script>
+    async function loadData() {
+      const table = document.getElementById('cryptoTable');
+      table.innerHTML = '<tr><td colspan="7" class="text-center py-10"><i class="fas fa-spinner fa-spin text-3xl"></i><br>Fetching Top 100...</td></tr>';
+      
+      try {
+        // Top 100 coins
+        const res = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false&price_change_percentage=24h%2C7d');
+        const coins = await res.json();
+
+        let html = '';
+        
+        coins.forEach(coin => {
+          const change24 = coin.price_change_percentage_24h || 0;
+          const change7d = coin.price_change_percentage_7d_in_currency || 0;
+          
+          // Simple Multi-Confirmation Logic (Real indicators ke jagah practical single-file version)
+          let signal = 'Neutral';
+          let strength = 'Medium';
+          let signalClass = 'signal-neutral';
+          
+          const bullish = change24 > 2 && change7d > 5;
+          const bearish = change24 < -2 && change7d < -5;
+          
+          if (bullish && coin.market_cap_rank < 30) {
+            signal = 'Strong Buy';
+            signalClass = 'signal-buy';
+            strength = 'High';
+          } else if (bullish) {
+            signal = 'Buy';
+            signalClass = 'signal-buy';
+            strength = 'Medium';
+          } else if (bearish && coin.market_cap_rank < 30) {
+            signal = 'Strong Sell';
+            signalClass = 'signal-sell';
+            strength = 'High';
+          } else if (bearish) {
+            signal = 'Sell';
+            signalClass = 'signal-sell';
+            strength = 'Medium';
+          }
+
+          html += `
             <tr class="border-b border-zinc-800 hover:bg-zinc-900 transition">
               <td class="p-4">${coin.market_cap_rank}</td>
               <td class="p-4 flex items-center gap-3">
@@ -22,14 +114,14 @@ html +=
                 <span class="px-3 py-1 bg-zinc-800 rounded-full text-xs">${strength}</span>
               </td>
             </tr>
-          ;
+          `;
         });
 
         table.innerHTML = html;
-        document.getElementById('lastUpdated').textContent = Last updated: ${new Date().toLocaleTimeString()};
+        document.getElementById('lastUpdated').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
         
       } catch (e) {
-        table.innerHTML = <tr><td colspan="7" class="text-center py-10 text-red-400">Error loading data. Please try again.</td></tr>;
+        table.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-red-400">Error loading data. Please try again.</td></tr>`;
         console.error(e);
       }
     }
