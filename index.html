@@ -1461,7 +1461,28 @@ PART 4 CONTINUES BELOW
 /* ===========================
 TP / SL ENGINE
 =========================== */
+function saveSignals(signals){
 
+localStorage.setItem(
+"eliteSignals",
+JSON.stringify(signals)
+);
+
+}
+
+function loadSavedSignals(){
+
+const saved =
+localStorage.getItem(
+"eliteSignals"
+);
+
+if(!saved) return [];
+
+return JSON.parse(saved);
+
+}
+  
 function buildTargets(price, atr, signal){
 
 const risk = atr * 1.5;
@@ -1731,6 +1752,8 @@ a.confidence
 state.signals =
 signals;
 
+saveSignals(signals);
+
 document
 .getElementById(
 "buyCount"
@@ -1830,6 +1853,21 @@ CONFIG
 
 );
 
+const oldSignals =
+loadSavedSignals();
+
+if(oldSignals.length){
+
+document
+.getElementById("signals")
+.innerHTML =
+
+oldSignals
+.map(renderSignal)
+.join("");
+
+}
+  
 /* ===========================
 AUTO START
 =========================== */
